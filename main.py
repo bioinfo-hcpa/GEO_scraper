@@ -404,7 +404,7 @@ else:
 		codes = [value for value in codes if value not in done_codes]		
 
 
-codes = ['GSE259276','GSE245108','GSE250469','GSE222009','GSE234729']
+#codes = ['GSE259276','GSE245108','GSE250469','GSE222009','GSE234729']
 	
 
 with open(output_name,'a') as output:		
