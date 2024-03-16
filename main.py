@@ -9,13 +9,25 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 import re 
+import argparse
+
+#Get arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--verbose', action='store_true', help='Set verbose to True')
+parser.add_argument('-q', '--quick', action='store_true', help='Set complete to False')
+parser.add_argument('-o', '--output', type=str, default='output',help='Output file name')
+args = parser.parse_args()
 
 print('Starting')
 
 #OPTIONS
 verbose = False
+if args.verbose:
+	verbose = True
 complete = True
-output_name = 'output'
+if args.quick:
+	complete = False
+output_name = args.output
 
 #Input file
 paths = os.listdir('input/')
@@ -173,7 +185,7 @@ def citationFinder():
 		print('Citation: ' + citation)	
 	return citation
 
-def tissueFinder():
+def sampledetailFinder():
 	samplecodes = []
 	tissues = []
 	driver = webdriver.Firefox(options=firefox_options)
@@ -211,9 +223,17 @@ def tissueFinder():
 	tissues = []
 	cell_types = []
 	cell_lines = []
+	races = []
+	ethnicities = []
+	ancestries = []
 	pattern_t = re.compile(r'tissue:(.*?)<br>', re.DOTALL)
 	pattern_c = re.compile(r'cell type:(.*?)<br>', re.DOTALL)
 	pattern_l = re.compile(r'cell line:(.*?)<br>', re.DOTALL)
+	pattern_r = re.compile(r'race:(.*?)<br>', re.DOTALL)
+	pattern_e1 = re.compile(r'reported_ethnicity:(.*?)<br>', re.DOTALL)
+	pattern_e2 = re.compile(r'<br>ethnicity:(.*?)<br>', re.DOTALL)
+	pattern_e3 = re.compile(r'race/ethnicity:(.*?)<br>', re.DOTALL)
+	pattern_a = re.compile(r'ancestry:(.*?)<br>', re.DOTALL)	
 	for valor in sample_links:
 		sample_path = valor
 		sample_html = requests.get(sample_path)
@@ -225,6 +245,9 @@ def tissueFinder():
 				tdata = {}
 				cdata = {}
 				ldata = {}
+				rdata = {}
+				edata = {}
+				adata = {}
 				for line in texto:
 					if 'tissue:' in line:
 						match = pattern_t.search(line)
@@ -241,6 +264,33 @@ def tissueFinder():
 						if match:
 							result=match.group(1).strip()
 							cell_lines.append(result)
+					if 'race:' in line:
+						match = pattern_r.search(line)
+						if match:
+							result=match.group(1).strip()
+							races.append(result)
+					if 'reported_ethnicity:' in line:
+						match = pattern_e1.search(line)
+						if match:
+							result=match.group(1).strip()
+							ethnicities.append(result)
+					if '<br>ethnicity:' in line:
+						match = pattern_e2.search(line)
+						if match:
+							result=match.group(1).strip()
+							ethnicities.append(result)
+					if 'race/ethnicity:' in line:
+						match = pattern_e3.search(line)
+						if match:
+							result=match.group(1).strip()
+							races.append(result)
+							ethnicities.append(result)
+					if 'ancestry:' in line:
+						match = pattern_a.search(line)
+						if match:
+							result=match.group(1).strip()
+							ancestries.append(result)
+							
 				for value in tissues:
 					if value not in tdata.keys():
 						tdata[value] = tissues.count(value)
@@ -250,9 +300,22 @@ def tissueFinder():
 				for value in cell_lines:
 					if value not in ldata.keys():
 						ldata[value] = cell_lines.count(value)
+				for value in races:
+					if value not in rdata.keys():
+						rdata[value] = races.count(value)
+				for value in ethnicities:
+					if value not in edata.keys():
+						edata[value] = ethnicities.count(value)
+				for value in ancestries:
+					if value not in adata.keys():
+						adata[value] = ancestries.count(value)
+
 	tissue = ''
 	cells = ''
 	lines = ''
+	races1 = ''
+	ethnicities1 = ''
+	ancestries1 = ''
 	for key, value in tdata.items():
 		if len(tdata.keys()) > 0:
 			keys_list = list(tdata.keys())		
@@ -274,14 +337,37 @@ def tissueFinder():
 				lines += key + ' (' + str(value) + ')'
 			else:
 				lines += key + ' (' + str(value) + ') ' + ' / '	
+	for key, value in rdata.items():
+		if len(rdata.keys()) > 0:
+			keys_list = list(rdata.keys())	
+			if key == keys_list[-1]:
+				races1 += key + ' (' + str(value) + ')'
+			else:
+				races1 += key + ' (' + str(value) + ') ' + ' / '	
+	for key, value in edata.items():
+		if len(edata.keys()) > 0:
+			keys_list = list(edata.keys())	
+			if key == keys_list[-1]:
+				ethnicities1 += key + ' (' + str(value) + ')'
+			else:
+				ethnicities1 += key + ' (' + str(value) + ') ' + ' / '	
+	for key, value in adata.items():
+		if len(adata.keys()) > 0:
+			keys_list = list(adata.keys())	
+			if key == keys_list[-1]:
+				ancestries1 += key + ' (' + str(value) + ')'
+			else:
+				ancestries1 += key + ' (' + str(value) + ') ' + ' / '	
 	if verbose == True:
 		print('Tissues: ' + tissue)
 		print('Cell types: ' + cells)
-		print('Cell lines: ' + lines)	
-	return tissue, cells, lines		
+		print('Cell lines: ' + lines)
+		print('Races: ' + races1)
+		print('Ethnicities: ' + ethnicities1)
+		print('Ancestries: ' + ancestries1)	
+	return tissue, cells, lines, races1 , ethnicities1 , ancestries1		
 			
-		
-					
+
 
 start = time()
 
@@ -306,7 +392,7 @@ files = os.listdir('output/')
 
 if output_name[7:] not in files:
 	with open(output_name,'w') as texto:
-		texto.write('Accession code ; Link ; Citation ; Experiment Type ; Platform ; Organism ; Samples ; SRA ; SRA Link ; Tissue ; Cell type ; Cell line ; Title \n')
+		texto.write('Accession code ; Link ; Citation ; Experiment Type ; Platform ; Organism ; Samples ; SRA ; SRA Link ; Tissue ; Cell type ; Cell line ; Race ; Ethnicity ; Ancestry ; Title \n')
 else:
 	with open(output_name,'r') as texto:
 		done_codes = []
@@ -318,7 +404,7 @@ else:
 		codes = [value for value in codes if value not in done_codes]		
 
 
-#codes = ['GSE48865']
+codes = ['GSE259276','GSE245108','GSE250469','GSE222009','GSE234729']
 	
 
 with open(output_name,'a') as output:		
@@ -352,11 +438,14 @@ with open(output_name,'a') as output:
 				else:
 					data_for_studies[value]['SRA_link'] = 'NA'
 			if complete == True: 
-				data_for_studies[value]['Tissue'], data_for_studies[value]['Cells'], data_for_studies[value]['Lines'] = tissueFinder()
+				data_for_studies[value]['Tissue'], data_for_studies[value]['Cells'], data_for_studies[value]['Lines'], data_for_studies[value]['Race'] , data_for_studies[value]['Ethnicity'] ,  data_for_studies[value]['Ancestry'] = sampledetailFinder()
 			else:
 				data_for_studies[value]['Tissue'] = ''
 				data_for_studies[value]['Cells'] = ''
 				data_for_studies[value]['Lines'] = ''
+				data_for_studies[value]['Race'] = ''
+				data_for_studies[value]['Ethnicity'] = ''
+				data_for_studies[value]['Ancestry'] = ''
 			with open('tmp/Page.html','r') as texto:
 				data_for_studies[value]['Title'] = getTitle(texto)
 			n_studies += 1		
@@ -377,7 +466,7 @@ with open(output_name,'a') as output:
 		output.write(data_for_studies[value]['Samples'] + ' ; ')
 		output.write(data_for_studies[value]['SRA'] + ' ; ')
 		output.write(data_for_studies[value]['SRA_link'] + ' ; ')	
-		output.write(data_for_studies[value]['Tissue'] + ' ; ' + data_for_studies[value]['Cells'] + ' ; ' + data_for_studies[value]['Lines'] + ' ; ')			
+		output.write(data_for_studies[value]['Tissue'] + ' ; ' + data_for_studies[value]['Cells'] + ' ; ' + data_for_studies[value]['Lines'] + ' ; '+ data_for_studies[value]['Race'] + ' ; '+ data_for_studies[value]['Ethnicity'] + ' ; '+ data_for_studies[value]['Ancestry'] + ' ; ')
 		output.write(data_for_studies[value]['Title'] + '\n')				
 		output.flush()	
 	
