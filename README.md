@@ -2,7 +2,7 @@
 - Download the program files: Click on '<> Code' and then on 'Download ZIP'
 - Place the 'GEO-scraper_main.zip' file on the installation directory of your choice.
 - Chang into the installation directory and unzip the file (unzip GEO-scraper_main.zip)  
-- Install necessary packages: selenium, beutifulsoup4 and requests (pip install package)
+- Install necessary packages: selenium, beutifulsoup4, requests and lxml (pip install package)
 
 # Input File Preparation
 - This program is suitable to scrape data from any list of studies found after a Gene Expression Omnibus (GEO) search. The input file must be one or more html files with search results. Prepare the file as following:
