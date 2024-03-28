@@ -10,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 import re 
 import argparse
+import datetime
 
 #Get arguments
 parser = argparse.ArgumentParser()
@@ -183,6 +184,7 @@ def citationFinder():
 		citation = 'Citation missing'
 	if verbose == True:
 		print('Citation: ' + citation)	
+	driver.quit()
 	return citation
 
 def sampledetailFinder():
@@ -387,6 +389,7 @@ output_name = 'output/' + output_name + '.csv'
 
 #Parse html pages for accession codes	
 n_studies = 0
+all_codes = 0
 
 files = os.listdir('output/')
 
@@ -401,7 +404,10 @@ else:
 				linha = line.split()
 				if len(linha)>0:
 					done_codes.append(linha[0])
-		codes = [value for value in codes if value not in done_codes]		
+		all_codes = len(codes)
+		codes = [value for value in codes if value not in done_codes]
+		n_studies = len(done_codes)
+
 
 
 #codes = ['GSE259276','GSE245108','GSE250469','GSE222009','GSE234729']
@@ -409,66 +415,81 @@ else:
 
 with open(output_name,'a') as output:		
 	for value in codes:
+		data_for_studies = {}
 	#	if n_studies == 20: #Limits the number of experiments parsed
 	#		break
-		geo_path = 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=' + value
-		html_page = requests.get(geo_path)
-		data_for_studies[value] = {}
-		data_for_studies[value]['Link'] = geo_path
-		if html_page.status_code==200:
-			html_content=html_page.text
-			print('Parsing ' + value + '... \n')
-			with open('tmp/Page.html','w',encoding='utf-8') as file:
-				file.write(html_content)
-			data_for_studies[value]['Citation'] = citationFinder()	
-			with open('tmp/Page.html','r') as texto:
-				data_for_studies[value]['Experiment_Type'] =  experimentTyper(texto)
-			with open('tmp/Page.html','r') as texto:
-				data_for_studies[value]['Platform'] = platformFinder(texto)
-			with open('tmp/Page.html','r') as texto:
-				data_for_studies[value]['Organism'] = organismFinder(texto)
-			with open('tmp/Page.html','r') as texto:
-				data_for_studies[value]['Samples'] = sampleFinder(texto)
-			with open('tmp/Page.html','r') as texto:
-				data_for_studies[value]['SRA'] = sraChecker(texto)
-				
-			with open('tmp/Page.html','r') as texto:
-				if data_for_studies[value]['SRA'] == 'Yes':
-					data_for_studies[value]['SRA_link'] = sralinkFinder(texto)
+		try:
+			geo_path = 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=' + value
+			html_page = requests.get(geo_path)
+			data_for_studies[value] = {}
+			data_for_studies[value]['Link'] = geo_path
+			if html_page.status_code==200:
+				html_content=html_page.text
+				print('Parsing ' + value + '... \n')
+				with open('tmp/Page.html','w',encoding='utf-8') as file:
+					file.write(html_content)
+				data_for_studies[value]['Citation'] = citationFinder()	
+				with open('tmp/Page.html','r') as texto:
+					data_for_studies[value]['Experiment_Type'] =  experimentTyper(texto)
+				with open('tmp/Page.html','r') as texto:
+					data_for_studies[value]['Platform'] = platformFinder(texto)
+				with open('tmp/Page.html','r') as texto:
+					data_for_studies[value]['Organism'] = organismFinder(texto)
+				with open('tmp/Page.html','r') as texto:
+					data_for_studies[value]['Samples'] = sampleFinder(texto)
+				with open('tmp/Page.html','r') as texto:
+					data_for_studies[value]['SRA'] = sraChecker(texto)
+					
+				with open('tmp/Page.html','r') as texto:
+					if data_for_studies[value]['SRA'] == 'Yes':
+						data_for_studies[value]['SRA_link'] = sralinkFinder(texto)
+					else:
+						data_for_studies[value]['SRA_link'] = 'NA'
+				if complete == True: 
+					data_for_studies[value]['Tissue'], data_for_studies[value]['Cells'], data_for_studies[value]['Lines'], data_for_studies[value]['Race'] , data_for_studies[value]['Ethnicity'] ,  data_for_studies[value]['Ancestry'] = sampledetailFinder()
 				else:
-					data_for_studies[value]['SRA_link'] = 'NA'
-			if complete == True: 
-				data_for_studies[value]['Tissue'], data_for_studies[value]['Cells'], data_for_studies[value]['Lines'], data_for_studies[value]['Race'] , data_for_studies[value]['Ethnicity'] ,  data_for_studies[value]['Ancestry'] = sampledetailFinder()
+					data_for_studies[value]['Tissue'] = ''
+					data_for_studies[value]['Cells'] = ''
+					data_for_studies[value]['Lines'] = ''
+					data_for_studies[value]['Race'] = ''
+					data_for_studies[value]['Ethnicity'] = ''
+					data_for_studies[value]['Ancestry'] = ''
+				with open('tmp/Page.html','r') as texto:
+					data_for_studies[value]['Title'] = getTitle(texto)
+				n_studies += 1		
+				seconds = time() - start
+				tax = (seconds/n_studies*len(codes)) - seconds 
+				print('\nDone (' + str(n_studies) + '/' + str(all_codes)+ ') \n---------\n\n')
 			else:
-				data_for_studies[value]['Tissue'] = ''
-				data_for_studies[value]['Cells'] = ''
-				data_for_studies[value]['Lines'] = ''
-				data_for_studies[value]['Race'] = ''
-				data_for_studies[value]['Ethnicity'] = ''
-				data_for_studies[value]['Ancestry'] = ''
-			with open('tmp/Page.html','r') as texto:
-				data_for_studies[value]['Title'] = getTitle(texto)
-			n_studies += 1		
-			seconds = time() - start
-			tax = (seconds/n_studies*len(codes)) - seconds 
-			print('\nDone (' + str(n_studies) + '/' + str(len(codes))+ ') \n---------\n\n')
-		else:
-			print(f'Failed to download HTML. Status code: {html_page.status_code}')
+				print(f'Failed to download HTML. Status code: {html_page.status_code}')
+				output.write(value + ' ; ')
+				output.write(geo_path + ' ; ')	
+				output.write('Connection error \n')
 			output.write(value + ' ; ')
 			output.write(geo_path + ' ; ')	
-			output.write('Connection error \n')
-		output.write(value + ' ; ')
-		output.write(geo_path + ' ; ')	
-		output.write(data_for_studies[value]['Citation'] + ' ; ')
-		output.write(data_for_studies[value]['Experiment_Type'] + ' ; ')
-		output.write(data_for_studies[value]['Platform'] + ' ; ')
-		output.write(data_for_studies[value]['Organism'] + ' ; ')
-		output.write(data_for_studies[value]['Samples'] + ' ; ')
-		output.write(data_for_studies[value]['SRA'] + ' ; ')
-		output.write(data_for_studies[value]['SRA_link'] + ' ; ')	
-		output.write(data_for_studies[value]['Tissue'] + ' ; ' + data_for_studies[value]['Cells'] + ' ; ' + data_for_studies[value]['Lines'] + ' ; '+ data_for_studies[value]['Race'] + ' ; '+ data_for_studies[value]['Ethnicity'] + ' ; '+ data_for_studies[value]['Ancestry'] + ' ; ')
-		output.write(data_for_studies[value]['Title'] + '\n')				
-		output.flush()	
+			output.write(data_for_studies[value]['Citation'] + ' ; ')
+			output.write(data_for_studies[value]['Experiment_Type'] + ' ; ')
+			output.write(data_for_studies[value]['Platform'] + ' ; ')
+			output.write(data_for_studies[value]['Organism'] + ' ; ')
+			output.write(data_for_studies[value]['Samples'] + ' ; ')
+			output.write(data_for_studies[value]['SRA'] + ' ; ')
+			output.write(data_for_studies[value]['SRA_link'] + ' ; ')	
+			output.write(data_for_studies[value]['Tissue'] + ' ; ' + data_for_studies[value]['Cells'] + ' ; ' + data_for_studies[value]['Lines'] + ' ; '+ data_for_studies[value]['Race'] + ' ; '+ data_for_studies[value]['Ethnicity'] + ' ; '+ data_for_studies[value]['Ancestry'] + ' ; ')
+			output.write(data_for_studies[value]['Title'] + '\n')				
+			output.flush()	
+		except Exception as e:
+			if os.path.exists('output/error_log.txt'):
+				with open('output/error_log.txt','a') as error:
+					error.write(f'{value} {datetime.datetime.now()}\n')
+					error.write(f'{e}\n')
+			else:
+				with open('output/error_log.txt','w') as error:
+					error.write(f'{value} {datetime.datetime.now()}\n')
+					error.write(f'{e}\n')
+			print(f'Error for {value}: {e}')
+			print('Moving to the next study')
+			continue
+				
 	
 	
 
