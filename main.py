@@ -185,6 +185,7 @@ def citationFinder():
 	if verbose == True:
 		print('Citation: ' + citation)	
 	driver.quit()
+	citation = citation.replace(';',',')
 	return citation
 
 def sampledetailFinder():
@@ -396,6 +397,7 @@ files = os.listdir('output/')
 if output_name[7:] not in files:
 	with open(output_name,'w') as texto:
 		texto.write('Accession code ; Link ; Citation ; Experiment Type ; Platform ; Organism ; Samples ; SRA ; SRA Link ; Tissue ; Cell type ; Cell line ; Race ; Ethnicity ; Ancestry ; Title \n')
+	all_codes = len(codes)
 else:
 	with open(output_name,'r') as texto:
 		done_codes = []
@@ -416,8 +418,8 @@ else:
 with open(output_name,'a') as output:		
 	for value in codes:
 		data_for_studies = {}
-	#	if n_studies == 20: #Limits the number of experiments parsed
-	#		break
+		#if n_studies == 20: #Limits the number of experiments parsed
+		#	break
 		try:
 			geo_path = 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=' + value
 			html_page = requests.get(geo_path)
@@ -456,27 +458,26 @@ with open(output_name,'a') as output:
 					data_for_studies[value]['Ancestry'] = ''
 				with open('tmp/Page.html','r') as texto:
 					data_for_studies[value]['Title'] = getTitle(texto)
+				output.write(value + ' ; ')
+				output.write(geo_path + ' ; ')	
+				output.write(data_for_studies[value]['Citation'] + ' ; ')
+				output.write(data_for_studies[value]['Experiment_Type'] + ' ; ')
+				output.write(data_for_studies[value]['Platform'] + ' ; ')
+				output.write(data_for_studies[value]['Organism'] + ' ; ')
+				output.write(data_for_studies[value]['Samples'] + ' ; ')
+				output.write(data_for_studies[value]['SRA'] + ' ; ')
+				output.write(data_for_studies[value]['SRA_link'] + ' ; ')	
+				output.write(data_for_studies[value]['Tissue'] + ' ; ' + data_for_studies[value]['Cells'] + ' ; ' + data_for_studies[value]['Lines'] + ' ; '+ data_for_studies[value]['Race'] + ' ; '+ data_for_studies[value]['Ethnicity'] + ' ; '+ data_for_studies[value]['Ancestry'] + ' ; ')
+				output.write(data_for_studies[value]['Title'] + '\n')				
+				output.flush()	
 				n_studies += 1		
 				seconds = time() - start
 				tax = (seconds/n_studies*len(codes)) - seconds 
 				print('\nDone (' + str(n_studies) + '/' + str(all_codes)+ ') \n---------\n\n')
 			else:
 				print(f'Failed to download HTML. Status code: {html_page.status_code}')
-				output.write(value + ' ; ')
-				output.write(geo_path + ' ; ')	
-				output.write('Connection error \n')
-			output.write(value + ' ; ')
-			output.write(geo_path + ' ; ')	
-			output.write(data_for_studies[value]['Citation'] + ' ; ')
-			output.write(data_for_studies[value]['Experiment_Type'] + ' ; ')
-			output.write(data_for_studies[value]['Platform'] + ' ; ')
-			output.write(data_for_studies[value]['Organism'] + ' ; ')
-			output.write(data_for_studies[value]['Samples'] + ' ; ')
-			output.write(data_for_studies[value]['SRA'] + ' ; ')
-			output.write(data_for_studies[value]['SRA_link'] + ' ; ')	
-			output.write(data_for_studies[value]['Tissue'] + ' ; ' + data_for_studies[value]['Cells'] + ' ; ' + data_for_studies[value]['Lines'] + ' ; '+ data_for_studies[value]['Race'] + ' ; '+ data_for_studies[value]['Ethnicity'] + ' ; '+ data_for_studies[value]['Ancestry'] + ' ; ')
-			output.write(data_for_studies[value]['Title'] + '\n')				
-			output.flush()	
+				error.write(f'{value} {datetime.datetime.now()}\n')
+				error.write(f'{html_page.status_code}\n')
 		except Exception as e:
 			if os.path.exists('output/error_log.txt'):
 				with open('output/error_log.txt','a') as error:
